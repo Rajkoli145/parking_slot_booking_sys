@@ -1,0 +1,27 @@
+{
+  "name": "parking_slot_booking_sys",
+  "version": "1.0.0",
+  "description": "A Parking Slot Booking System built with GraphQL that helps manage parking lots, slots, users, and bookings. The system allows users to check slot availability, book parking slots for a specific time, prevent double bookings, and handle payments.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rajkoli145/parking_slot_booking_sys.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Rajkoli145/parking_slot_booking_sys/issues"
+  },
+  "homepage": "https://github.com/Rajkoli145/parking_slot_booking_sys#readme",
+  "dependencies": {
+    "express": "^5.2.1",
+    "express-graphql": "^0.12.0",
+    "graphql": "^15.10.1",
+    "uuid": "^13.0.0"
+  }
+}
