@@ -11,32 +11,32 @@ const schema = buildSchema(`
     enum BookingStatus { active completed cancelled}
     enum PaymentStatus { pending paid failed}
     
-    type user {
+    type User {
     id: ID!
     name: String!
     email: String!
     phone: String!
     }
 
-    type parkingLot {
+    type ParkingLot {
     id:ID!
     name: String!
     location: String!
     total_slot:Int!
-    slots : [parkingslot] 
+    slots : [ParkingSlot] 
     }
 
-    type parkingSlot{
+    type ParkingSlot{
     id: ID!
     lot_id: ID!
     slot_number: String!
     Status: SlotStatus!
     }
 
-    type booking{
+    type Booking{
     id: ID!
     slot_id: ID!
-    user_id: ID!
+    User_id: ID!
     start_time: String!
     end_time: String!
     status: BookingStatus!
@@ -45,10 +45,9 @@ const schema = buildSchema(`
     payment: Payment
     }
     
-    type payment{
+    type Payment{
     id: ID!
-    id: ID!
-    booking_id: ID!   
+    Booking_id: ID!   
     amount: Float!    
     status: PaymentStatus!
     }
@@ -67,22 +66,22 @@ const schema = buildSchema(`
 
     input CreateBookingInput {
     slotId: ID!
-    userId: ID!
+    UserId: ID!
     startTime: String!
     endTime: String!
     }
     
 
-    type Query{
-    getUsers : [user]
-    getUser(id:ID!): user
-    getParkingLots : [parkingLot]
-    getParkingLot(id:ID!): parkingLot
-    getBookings : [booking]
-    getBooking(id:ID!): booking
-    getPayments : [payment]
-    getPayment(id:ID!): payment
-    }
+    type Query {
+    getUsers: [User]
+    getUser(id: ID!): User
+    getParkingLots: [ParkingLot]
+    getParkingLot(id: ID!): ParkingLot
+    getAvailableSlots(lotId: ID!): [ParkingSlot]
+    getBooking(id: ID!): Booking
+    getBookingsByUser(userId: ID!): [Booking]
+    getAllPayments: [Payment]
+  }
 
 
     type Mutation {
@@ -90,7 +89,7 @@ const schema = buildSchema(`
     createParkingLot(input: CreateParkingLotInput!): ParkingLot
     createBooking(input: CreateBookingInput!): Booking
     cancelBooking(id: ID!): Booking
-    makePayment(bookingId: ID!): Payment
+    makePayment(BookingId: ID!): Payment
 
   }
 `);
@@ -98,11 +97,11 @@ const schema = buildSchema(`
 
 // 2. In memory database:
 const db = {
-    users: [],
-    parkingLots: [],
-    parkingSlots: [],
-    bookings: [],
-    payments: []
+    Users: [],
+    ParkingLots: [],
+    ParkingSlots: [],
+    Bookings: [],
+    Payments: []
 };
 
 // 3. Helper Functions :
@@ -114,9 +113,9 @@ function calcHours(start, end) {
     return diff / (1000 * 60 * 60); // ms → hours
 }
 
-// Check conficts btn booking slots
+// Check conficts btn Booking slots
 function hasTimeConflict(slotId, startTime, endTime, excludeBookingId = null) {
-    return db.bookings.some(b => {
+    return db.Bookings.some(b => {
         if (b.slot_id !== slotId) return false;
         if (b.status === 'cancelled') return false;
         if (excludeBookingId && b.id === excludeBookingId) return false;
@@ -134,19 +133,19 @@ function hasTimeConflict(slotId, startTime, endTime, excludeBookingId = null) {
 // 4. Resolvers:
 const root = {
 
-    getUsers: () => db.users,
-    getUser: ({ id }) => db.users.find(u => u.id === id),
+    getUsers: () => db.Users,
+    getUser: ({ id }) => db.Users.find(u => u.id === id),
 
 
     createUser: ({ input }) => {
-        const user = { id: uuidv4(), ...input };
-        db.users.push(user);
-        return user;
+        const User = { id: uuidv4(), ...input };
+        db.Users.push(User);
+        return User;
     },
 
     getParkingLots: () => db.parkingLots.map(lot => ({
         ...lot,
-        slots: db.parkingSlots.filter(s => s.lot_id === lot.id)
+        slots: db.ParkingSlots.filter(s => s.lot_id === lot.id)
     })),
 
     createParkingLot: ({ input }) => {
@@ -155,41 +154,41 @@ const root = {
 
         // Auto-create slots for this lot
         for (let i = 1; i <= input.total_slots; i++) {
-            db.parkingSlots.push({
+            db.ParkingSlots.push({
                 id: uuidv4(),
                 lot_id: lot.id,
                 slot_number: `S${i}`,
                 status: 'available'
             });
         }
-        return { ...lot, slots: db.parkingSlots.filter(s => s.lot_id === lot.id) };
+        return { ...lot, slots: db.ParkingSlots.filter(s => s.lot_id === lot.id) };
     },
     // ── SLOTS ─────────────────────────────────────
     getAvailableSlots: ({ lotId }) =>
-        db.parkingSlots.filter(s => s.lot_id === lotId && s.status === 'available'),
+        db.ParkingSlots.filter(s => s.lot_id === lotId && s.status === 'available'),
 
-    // ── BOOKING ───────────────────────────────────
+    // ── Booking ───────────────────────────────────
     getBooking: ({ id }) => {
-        const booking = db.bookings.find(b => b.id === id);
-        if (!booking) throw new Error('Booking not found');
+        const Booking = db.Bookings.find(b => b.id === id);
+        if (!Booking) throw new Error('Booking not found');
         return {
-            ...booking,
-            hours: calcHours(booking.start_time, booking.end_time),
-            slot: db.parkingSlots.find(s => s.id === booking.slot_id),
-            payment: db.payments.find(p => p.booking_id === booking.id)
+            ...Booking,
+            hours: calcHours(Booking.start_time, Booking.end_time),
+            slot: db.ParkingSlots.find(s => s.id === Booking.slot_id),
+            Payment: db.Payments.find(p => p.Booking_id === Booking.id)
         };
     },
     createBooking: ({ input }) => {
-        const { slotId, userId, startTime, endTime } = input;
+        const { slotId, UserId, startTime, endTime } = input;
 
         // 1.  Validating slot exists
-        const slot = db.parkingSlots.find(s => s.id === slotId);
+        const slot = db.ParkingSlots.find(s => s.id === slotId);
         if (!slot) throw new Error('Slot not found');
 
         // 2. Validting slot is available
         if (slot.status === 'occupied') throw new Error('Slot is occupied');
 
-        // 3. Validating time conflict so no confict btn two booking at same time
+        // 3. Validating time conflict so no confict btn two Booking at same time
         if (hasTimeConflict(slotId, startTime, endTime)) {
             throw new Error('Time conflict: slot already booked in this time range');
         }
@@ -197,72 +196,72 @@ const root = {
         if (new Date(endTime) <= new Date(startTime)) {
             throw new Error('End time must be after start time');
         }
-        // 5. Create booking
-        const booking = {
+        // 5. Create Booking
+        const Booking = {
             id: uuidv4(),
             slot_id: slotId,
-            user_id: userId,
+            User_id: UserId,
             start_time: startTime,
             end_time: endTime,
             status: 'active'
         };
-        db.bookings.push(booking);
+        db.Bookings.push(Booking);
 
         // Mark slot as reserved
         slot.status = 'reserved';
 
         return {
-            ...booking,
+            ...Booking,
             hours: calcHours(startTime, endTime),
             slot,
-            payment: null
+            Payment: null
         };
     },
-    //  two main thing in cancel booking 
-    // 1 -> u can only cancel the active booking not completed or cancelled one
+    //  two main thing in cancel Booking 
+    // 1 -> u can only cancel the active Booking not completed or cancelled one
     // 2 -> when cancelled the slot goes to avaliable so someone else can book it 
     cancelBooking: ({ id }) => {
-        const booking = db.bookings.find(b => b.id === id);
-        if (!booking) throw new Error('Booking not found');
-        if (booking.status !== 'active') throw new Error('Only active bookings can be cancelled');
+        const Booking = db.Bookings.find(b => b.id === id);
+        if (!Booking) throw new Error('Booking not found');
+        if (Booking.status !== 'active') throw new Error('Only active Bookings can be cancelled');
 
-        booking.status = 'cancelled';
+        Booking.status = 'cancelled';
 
         // Free up the slot
-        const slot = db.parkingSlots.find(s => s.id === booking.slot_id);
+        const slot = db.ParkingSlots.find(s => s.id === Booking.slot_id);
         if (slot) slot.status = 'available';
 
-        return { ...booking, slot };
+        return { ...Booking, slot };
     },
 
-    getAllPayments: () => db.payments,
+    getAllPayments: () => db.Payments,
 
-    makePayment: ({ bookingId }) => {
-        const booking = db.bookings.find(b => b.id === bookingId);
-        if (!booking) throw new Error('Booking not found');
-        if (booking.status !== 'active') throw new Error('Booking is not active');
-        const existing = db.payments.find(p => p.booking_id === bookingId);
-        if (existing) throw new Error('Payment already made for this booking');
+    makePayment: ({ BookingId }) => {
+        const Booking = db.Bookings.find(b => b.id === BookingId);
+        if (!Booking) throw new Error('Booking not found');
+        if (Booking.status !== 'active') throw new Error('Booking is not active');
+        const existing = db.Payments.find(p => p.Booking_id === BookingId);
+        if (existing) throw new Error('Payment already made for this Booking');
 
-        const hours = calcHours(booking.start_time, booking.end_time);
+        const hours = calcHours(Booking.start_time, Booking.end_time);
         const amount = hours * RATE_PER_HOUR;
 
-        const payment = {
+        const Payment = {
             id: uuidv4(),
-            booking_id: bookingId,
+            Booking_id: BookingId,
             amount: parseFloat(amount.toFixed(2)),
             status: 'paid'
         };
-        db.payments.push(payment);
+        db.Payments.push(Payment);
 
-        // Update booking to completed after payment
-        booking.status = 'completed';
+        // Update Booking to completed after Payment
+        Booking.status = 'completed';
 
         // Free up the slot
-        const slot = db.parkingSlots.find(s => s.id === booking.slot_id);
+        const slot = db.ParkingSlots.find(s => s.id === Booking.slot_id);
         if (slot) slot.status = 'available';
 
-        return payment;
+        return Payment;
     }
 };
 
